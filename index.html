@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RawCase v2 — Side-by-Side Case Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0b0d14;
+  --bg2: #111320;
+  --surface: #161926;
+  --surface2: #1d2235;
+  --border: rgba(255,255,255,0.07);
+  --border-active: rgba(88,199,255,0.4);
+  --text: #dde3f0;
+  --text-muted: rgba(221,227,240,0.45);
+  --text-dim: rgba(221,227,240,0.2);
+  --accent: #58c7ff;
+  --accent-rgb: 88,199,255;
+  --accent2: #b48eff;
+  --accent3: #3dffc3;
+  --accent4: #ff8c5a;
+  --glow: rgba(88,199,255,0.08);
+  --red: #ff6b6b;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --r: 10px;
+  --r-lg: 16px;
+}
+
+body.light {
+  --bg: #eef1f8;
+  --bg2: #e4e8f2;
+  --surface: #ffffff;
+  --surface2: #f5f7fc;
+  --border: rgba(0,0,0,0.08);
+  --border-active: rgba(37,110,210,0.5);
+  --text: #1a1f36;
+  --text-muted: rgba(26,31,54,0.5);
+  --text-dim: rgba(26,31,54,0.25);
+  --accent: #256ed2;
+  --accent-rgb: 37,110,210;
+  --accent2: #7c42d4;
+  --accent3: #0b9e6e;
+  --accent4: #d45c1a;
+  --glow: rgba(37,110,210,0.06);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  transition: background 0.35s, color 0.35s;
+  overflow-x: hidden;
+}
+
+/* ─── GRID NOISE TEXTURE ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(88,199,255,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(180,142,255,0.06) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ─── HEADER ─── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: rgba(11,13,20,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.35s, border-color 0.35s;
+}
+body.light .topbar { background: rgba(238,241,248,0.9); }
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 14px; color: #fff; letter-spacing: -1px;
+}
+.logo-name {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 1.2rem; color: var(--text); letter-spacing: -0.5px;
+}
+.logo-name em { color: var(--accent); font-style: normal; }
+.logo-tag {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 2px;
+  font-family: var(--font-mono);
+}
+
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+.pill-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer; font-size: 11px;
+  font-family: var(--font-mono);
+  transition: all 0.2s;
+}
+.pill-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pill-btn.on { border-color: var(--accent3); color: var(--accent3); }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill-btn.on .pill-dot { animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+.icon-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* theme chips */
+.theme-strip { display: flex; gap: 4px; }
+.theme-chip {
+  width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: all 0.2s;
+}
+.theme-chip:hover, .theme-chip.active { border-color: var(--text); transform: scale(1.15); }
+
+/* ─── MAIN LAYOUT ─── */
+.app-shell {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap: 0;
+  height: calc(100vh - 57px);
+  max-width: 100%;
+}
+
+/* ─── STATS BAR ─── */
+.stats-bar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.stat-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 8px 0;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+.stat-item:last-child { border-right: none; }
+.stat-val {
+  font-size: 1.3rem; font-weight: 500; color: var(--accent);
+  font-family: var(--font-mono); line-height: 1;
+}
+.stat-key { font-size: 9px; color: var(--text-dim); letter-spacing: 1.5px; margin-top: 2px; }
+
+/* ─── LEFT PANEL ─── */
+.panel-left {
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.panel-title {
+  font-size: 10px; letter-spacing: 2px; color: var(--text-muted);
+  font-family: var(--font-display); font-weight: 600;
+}
+.panel-actions { display: flex; gap: 6px; }
+
+.micro-btn {
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer; font-size: 10px;
+  font-family: var(--font-mono); transition: all 0.2s;
+}
+.micro-btn:hover { border-color: var(--accent); color: var(--accent); }
+.micro-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+#rawInput {
+  flex: 1; width: 100%; padding: 18px;
+  border: none; outline: none; resize: none;
+  background: var(--surface); color: var(--text);
+  font-size: 14px; font-family: var(--font-mono);
+  line-height: 1.7; letter-spacing: 0.01em;
+  transition: background 0.3s;
+}
+#rawInput::placeholder { color: var(--text-dim); line-height: 1.6; }
+
+.input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2); font-size: 10px; color: var(--text-dim);
+}
+
+/* Voice button */
+.voice-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer; font-size: 10px;
+  font-family: var(--font-mono); transition: all 0.2s;
+}
+.voice-btn:hover { border-color: var(--red); color: var(--red); }
+.voice-btn.rec { border-color: var(--red); color: var(--red); animation: blink 0.6s infinite; }
+
+/* ─── RIGHT PANEL ─── */
+.panel-right {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-right .panel-header {
+  justify-content: space-between;
+}
+.right-header-left { display: flex; align-items: center; gap: 8px; }
+
+.outputs-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.outputs-scroll::-webkit-scrollbar { width: 4px; }
+.outputs-scroll::-webkit-scrollbar-track { background: transparent; }
+.outputs-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+/* ─── CASE ROW ─── */
+.case-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  transition: all 0.15s; cursor: pointer;
+  animation: slideIn 0.3s ease both;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+.case-row:hover { border-color: var(--border-active); background: var(--surface2); }
+.case-row.pinned { border-color: rgba(var(--accent-rgb), 0.3); }
+
+.case-left { min-width: 0; }
+.case-label {
+  font-size: 9px; letter-spacing: 1.5px; color: var(--text-dim);
+  font-family: var(--font-display); font-weight: 600;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+}
+.case-label .pin-star {
+  color: var(--accent); opacity: 0; transition: opacity 0.2s;
+  font-size: 10px;
+}
+.case-row.pinned .pin-star { opacity: 1; }
+
+.case-text {
+  font-size: 13px; color: var(--text);
+  font-family: var(--font-mono);
+  word-break: break-all; line-height: 1.5;
+}
+.case-text.empty { color: var(--text-dim); font-style: italic; font-size: 11px; }
+
+.case-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  flex-shrink: 0; min-width: 90px;
+}
+.case-metrics {
+  display: flex; flex-direction: column; gap: 2px;
+  text-align: right;
+}
+.metric { font-size: 10px; color: var(--text-dim); }
+.metric span { color: var(--text-muted); }
+.copy-btn {
+  padding: 3px 8px; border-radius: 5px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); cursor: pointer; font-size: 9px;
+  font-family: var(--font-mono); transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+.copy-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.copy-btn.done { border-color: var(--accent3); color: var(--accent3); }
+
+/* ─── SMART SUGGEST ─── */
+.suggest-strip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2); flex-wrap: wrap; min-height: 34px;
+}
+.suggest-label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+.sugg-chip {
+  padding: 2px 8px; border-radius: 99px;
+  border: 1px dashed var(--border);
+  color: var(--accent2); font-size: 10px;
+  cursor: pointer; font-family: var(--font-mono);
+  background: transparent; transition: all 0.2s;
+}
+.sugg-chip:hover { border-color: var(--accent2); background: rgba(180,142,255,0.08); }
+
+/* ─── BOTTOM BAR ─── */
+.bottom-bar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+.bottom-left { display: flex; gap: 8px; }
+.bottom-right { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-dim); }
+
+.action-btn {
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); cursor: pointer; font-size: 11px;
+  font-family: var(--font-mono); transition: all 0.2s;
+}
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent; color: #fff;
+}
+.action-btn.primary:hover { opacity: 0.88; }
+
+/* ─── HISTORY PANEL ─── */
+.history-panel {
+  position: fixed; right: 0; top: 57px; bottom: 0; width: 280px;
+  background: var(--bg2); border-left: 1px solid var(--border);
+  transform: translateX(100%); transition: transform 0.3s ease;
+  z-index: 50; display: flex; flex-direction: column;
+}
+.history-panel.open { transform: translateX(0); }
+.history-header {
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; letter-spacing: 2px; color: var(--text-muted);
+  font-family: var(--font-display); font-weight: 600;
+}
+.history-list { flex: 1; overflow-y: auto; padding: 8px; }
+.hist-item {
+  padding: 10px 12px; border-radius: 8px; margin-bottom: 4px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; transition: all 0.15s;
+}
+.hist-item:hover { border-color: var(--border-active); }
+.hist-text { font-size: 12px; color: var(--text); font-family: var(--font-mono); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-meta { font-size: 10px; color: var(--text-dim); }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 3rem; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--accent3); color: #02241a;
+  padding: 8px 20px; border-radius: 99px;
+  font-size: 12px; font-family: var(--font-mono); font-weight: 500;
+  opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── SCROLLBAR GLOBAL ─── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+/* ─── MOBILE ─── */
+@media (max-width: 700px) {
+  .app-shell { grid-template-columns: 1fr; height: auto; }
+  .panel-left { height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .panel-right { height: auto; min-height: 60vh; }
+  .stats-bar { grid-column: 1; }
+  .bottom-bar { grid-column: 1; flex-wrap: wrap; gap: 6px; }
+  .topbar { padding: 0.6rem 1rem; }
+  .theme-strip { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-mark">Rc</div>
+    <div>
+      <div class="logo-name">Raw<em>Case</em></div>
+      <div class="logo-tag">DUAL-PANEL CONVERTER</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="theme-strip" id="themeStrip">
+      <div class="theme-chip active" data-theme="dark" style="background:#0b0d14;" title="Dark"></div>
+      <div class="theme-chip" data-theme="light" style="background:#eef1f8;border:1px solid #ccc;" title="Light"></div>
+      <div class="theme-chip" data-theme="ocean" style="background:#050e1a;" title="Ocean"></div>
+      <div class="theme-chip" data-theme="forest" style="background:#07140d;" title="Forest"></div>
+      <div class="theme-chip" data-theme="ember" style="background:#140a05;" title="Ember"></div>
+    </div>
+    <button class="pill-btn on" id="liveBtn">
+      <div class="pill-dot"></div> LIVE
+    </button>
+    <button class="icon-btn" id="histBtn" title="History">⏱</button>
+  </div>
+</header>
+
+<!-- HISTORY PANEL -->
+<div class="history-panel" id="histPanel">
+  <div class="history-header">
+    HISTORY
+    <button class="icon-btn" id="closeHist" style="width:24px;height:24px;font-size:12px;">✕</button>
+  </div>
+  <div class="history-list" id="histList"></div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell">
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-val" id="sc">0</div><div class="stat-key">CHARS</div></div>
+    <div class="stat-item"><div class="stat-val" id="sw">0</div><div class="stat-key">WORDS</div></div>
+    <div class="stat-item"><div class="stat-val" id="ss">0</div><div class="stat-key">SENTENCES</div></div>
+    <div class="stat-item"><div class="stat-val" id="sl">0</div><div class="stat-key">LINES</div></div>
+    <div class="stat-item"><div class="stat-val" id="sp">0</div><div class="stat-key">PARAGRAPHS</div></div>
+  </div>
+
+  <!-- LEFT: INPUT -->
+  <div class="panel-left">
+    <div class="panel-header">
+      <div class="panel-title">RAW INPUT</div>
+      <div class="panel-actions">
+        <button class="micro-btn" id="voiceBtn">🎙 VOICE</button>
+        <button class="micro-btn" id="pasteBtn">PASTE</button>
+        <button class="micro-btn danger" id="clearBtn">CLEAR</button>
+      </div>
+    </div>
+    <textarea id="rawInput" placeholder="Type or paste text here...&#10;&#10;All 16 case formats update live as you type.&#10;Double-click any output to copy it instantly."></textarea>
+    <div class="input-footer">
+      <span id="footerInfo">Ready</span>
+      <span>DM to suggest new cases →</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="panel-right">
+    <div class="panel-header">
+      <div class="right-header-left">
+        <div class="panel-title">CONVERSIONS</div>
+        <span id="caseCount" style="font-size:9px;color:var(--text-dim);font-family:var(--font-mono);">16 formats</span>
+      </div>
+      <div class="panel-actions">
+        <button class="micro-btn" id="copyAllBtn">COPY ALL</button>
+      </div>
+    </div>
+    <div class="outputs-scroll" id="outputsScroll"></div>
+    <div class="suggest-strip" id="suggestStrip">
+      <span class="suggest-label">SMART SUGGEST →</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <div class="bottom-left">
+      <button class="action-btn primary" id="copyAllBtn2">⊞ COPY ALL FORMATS</button>
+      <button class="action-btn" id="exportBtn">↓ EXPORT</button>
+    </div>
+    <div class="bottom-right">
+      <span id="lastAction">No action yet</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CASES = [
+  { id:'upper',    label:'UPPERCASE',       fn: s => s.toUpperCase() },
+  { id:'lower',    label:'lowercase',       fn: s => s.toLowerCase() },
+  { id:'title',    label:'Title Case',      fn: s => s.replace(/\w\S*/g, w => w[0].toUpperCase()+w.slice(1).toLowerCase()) },
+  { id:'sentence', label:'Sentence case',   fn: s => s.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g,c=>c.toUpperCase()) },
+  { id:'cap',      label:'Capitalized Case',fn: s => s.replace(/\b\w/g,c=>c.toUpperCase()) },
+  { id:'camel',    label:'camelCase',       fn: s => s.replace(/[^a-zA-Z0-9]+(.)/g,(_,c)=>c.toUpperCase()).replace(/^[A-Z]/,c=>c.toLowerCase()) },
+  { id:'pascal',   label:'PascalCase',      fn: s => s.replace(/[^a-zA-Z0-9]+(.)/g,(_,c)=>c.toUpperCase()).replace(/^[a-z]/,c=>c.toUpperCase()) },
+  { id:'snake',    label:'snake_case',      fn: s => s.replace(/\W+/g,' ').trim().replace(/\s+/g,'_').replace(/([a-z])([A-Z])/g,'$1_$2').toLowerCase() },
+  { id:'kebab',    label:'kebab-case',      fn: s => s.replace(/\W+/g,' ').trim().replace(/\s+/g,'-').replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase() },
+  { id:'constant', label:'CONSTANT_CASE',   fn: s => s.replace(/\W+/g,' ').trim().replace(/\s+/g,'_').replace(/([a-z])([A-Z])/g,'$1_$2').toUpperCase() },
+  { id:'dot',      label:'dot.case',        fn: s => s.replace(/\W+/g,' ').trim().replace(/\s+/g,'.').replace(/([a-z])([A-Z])/g,'$1.$2').toLowerCase() },
+  { id:'path',     label:'path/case',       fn: s => s.replace(/\W+/g,' ').trim().replace(/\s+/g,'/').replace(/([a-z])([A-Z])/g,'$1/$2').toLowerCase() },
+  { id:'alt',      label:'aLtErNaTiNg',     fn: s => [...s].map((c,i)=>i%2===0?c.toLowerCase():c.toUpperCase()).join('') },
+  { id:'inv',      label:'iNVERSE cASE',    fn: s => [...s].map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join('') },
+  { id:'trim',     label:'Remove Spaces',   fn: s => s.replace(/\s+/g,' ').trim() },
+  { id:'slug',     label:'slug-generator',  fn: s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-') },
+];
+
+let liveMode = true;
+let history = [];
+let recognition = null;
+let isRecording = false;
+
+const inputEl = document.getElementById('rawInput');
+const outputsEl = document.getElementById('outputsScroll');
+const toast = document.getElementById('toast');
+const suggestStrip = document.getElementById('suggestStrip');
+
+// Build output rows
+function buildOutputs() {
+  outputsEl.innerHTML = '';
+  CASES.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'case-row';
+    row.id = 'row-' + c.id;
+    row.style.animationDelay = (i * 20) + 'ms';
+    row.innerHTML = `
+      <div class="case-left">
+        <div class="case-label">
+          <span class="pin-star">★</span> ${c.label}
+        </div>
+        <div class="case-text empty" id="txt-${c.id}">–</div>
+      </div>
+      <div class="case-right">
+        <div class="case-metrics" id="met-${c.id}">
+          <div class="metric">chars <span>–</span></div>
+          <div class="metric">words <span>–</span></div>
+          <div class="metric">sents <span>–</span></div>
+        </div>
+        <button class="copy-btn" id="cpb-${c.id}">COPY</button>
+      </div>
+    `;
+    row.querySelector('.copy-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      const result = c.fn(inputEl.value || '');
+      copyText(result, c.id);
+    });
+    row.addEventListener('dblclick', () => {
+      const result = c.fn(inputEl.value || '');
+      copyText(result, c.id);
+    });
+    outputsEl.appendChild(row);
+  });
+}
+
+function metrics(text) {
+  const chars = text.length;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const sents = text.trim() ? (text.match(/[^.!?]+[.!?]+/g)||[text]).length : 0;
+  return { chars, words, sents };
+}
+
+function updateAll() {
+  const raw = inputEl.value;
+  // Stats bar
+  const chars = raw.length;
+  const words = raw.trim() ? raw.trim().split(/\s+/).length : 0;
+  const sents = raw.trim() ? (raw.match(/[^.!?]+[.!?]+/g)||[raw]).length : 0;
+  const lines = raw ? raw.split('\n').length : 0;
+  const paras = raw.trim() ? raw.split(/\n\n+/).filter(p=>p.trim()).length : 0;
+  document.getElementById('sc').textContent = chars;
+  document.getElementById('sw').textContent = words;
+  document.getElementById('ss').textContent = sents;
+  document.getElementById('sl').textContent = lines;
+  document.getElementById('sp').textContent = paras;
+
+  document.getElementById('footerInfo').textContent = chars > 0
+    ? `${chars} chars · ${words} words`
+    : 'Ready';
+
+  // Update each case row
+  CASES.forEach(c => {
+    const result = c.fn(raw);
+    const m = metrics(result);
+    const txtEl = document.getElementById('txt-' + c.id);
+    const metEl = document.getElementById('met-' + c.id);
+    if (!raw) {
+      txtEl.textContent = '–';
+      txtEl.className = 'case-text empty';
+      metEl.innerHTML = '<div class="metric">chars <span>–</span></div><div class="metric">words <span>–</span></div><div class="metric">sents <span>–</span></div>';
+    } else {
+      txtEl.textContent = result;
+      txtEl.className = 'case-text';
+      metEl.innerHTML = `
+        <div class="metric">chars <span>${m.chars}</span></div>
+        <div class="metric">words <span>${m.words}</span></div>
+        <div class="metric">sents <span>${m.sents}</span></div>
+      `;
+    }
+  });
+
+  updateSuggestions(raw);
+}
+
+function updateSuggestions(text) {
+  suggestStrip.innerHTML = '<span class="suggest-label">SMART SUGGEST →</span>';
+  if (!text) return;
+  const suggs = [];
+  const upRatio = ((text.match(/[A-Z]/g)||[]).length) / ((text.match(/[a-zA-Z]/g)||[' ']).length);
+  if (upRatio > 0.5) { suggs.push('lowercase'); suggs.push('Title Case'); }
+  if (text.includes(' ')) { suggs.push('camelCase'); suggs.push('snake_case'); suggs.push('kebab-case'); }
+  if (/[A-Z]/.test(text) && !text.includes(' ')) suggs.push('snake_case');
+  if (text.length > 20) suggs.push('slug-generator');
+  if (text.match(/_/)) suggs.push('kebab-case');
+  if (text.match(/-/)) suggs.push('snake_case');
+  const seen = new Set();
+  suggs.slice(0,5).forEach(name => {
+    if (seen.has(name)) return; seen.add(name);
+    const c = CASES.find(c => c.label === name || c.id === name);
+    if (!c) return;
+    const chip = document.createElement('button');
+    chip.className = 'sugg-chip'; chip.textContent = c.label;
+    chip.addEventListener('click', () => {
+      const row = document.getElementById('row-' + c.id);
+      if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.style.borderColor = 'var(--accent)'; setTimeout(() => row.style.borderColor = '', 1500); }
+    });
+    suggestStrip.appendChild(chip);
+  });
+}
+
+function copyText(text, caseId) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    if (caseId) {
+      const btn = document.getElementById('cpb-' + caseId);
+      if (btn) { btn.textContent = 'DONE ✓'; btn.classList.add('done'); setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('done'); }, 1500); }
+    }
+    showToast('Copied!');
+    setLastAction('Copied ' + (CASES.find(c=>c.id===caseId)?.label || 'text'));
+  });
+}
+
+function copyAll() {
+  const raw = inputEl.value;
+  if (!raw) return;
+  const all = CASES.map(c => `[${c.label}]\n${c.fn(raw)}`).join('\n\n');
+  navigator.clipboard.writeText(all).then(() => {
+    showToast('All 16 formats copied!');
+    setLastAction('Copied all formats');
+  });
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function setLastAction(msg) {
+  document.getElementById('lastAction').textContent = msg + ' · ' + new Date().toLocaleTimeString();
+}
+
+function pushHistory(text) {
+  if (!text.trim() || history[0]?.text === text) return;
+  history.unshift({ text, time: new Date().toLocaleTimeString() });
+  if (history.length > 20) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('histList');
+  list.innerHTML = '';
+  history.forEach(h => {
+    const item = document.createElement('div');
+    item.className = 'hist-item';
+    item.innerHTML = `<div class="hist-text">${h.text}</div><div class="hist-meta">${h.time}</div>`;
+    item.addEventListener('click', () => {
+      inputEl.value = h.text;
+      updateAll();
+      document.getElementById('histPanel').classList.remove('open');
+    });
+    list.appendChild(item);
+  });
+}
+
+// Events
+inputEl.addEventListener('input', () => {
+  if (liveMode) updateAll();
+  clearTimeout(inputEl._ht);
+  inputEl._ht = setTimeout(() => pushHistory(inputEl.value), 1500);
+});
+
+document.getElementById('liveBtn').addEventListener('click', function() {
+  liveMode = !liveMode;
+  this.classList.toggle('on', liveMode);
+  this.innerHTML = `<div class="pill-dot"></div> ${liveMode ? 'LIVE' : 'MANUAL'}`;
+  if (liveMode) updateAll();
+  showToast(liveMode ? 'Live mode ON' : 'Manual mode');
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  inputEl.value = ''; updateAll(); setLastAction('Cleared');
+});
+
+document.getElementById('pasteBtn').addEventListener('click', () => {
+  navigator.clipboard.readText().then(t => {
+    inputEl.value = t; updateAll(); showToast('Pasted!');
+  }).catch(() => showToast('Paste not allowed'));
+});
+
+document.getElementById('copyAllBtn').addEventListener('click', copyAll);
+document.getElementById('copyAllBtn2').addEventListener('click', copyAll);
+
+document.getElementById('histBtn').addEventListener('click', () => {
+  document.getElementById('histPanel').classList.toggle('open');
+});
+document.getElementById('closeHist').addEventListener('click', () => {
+  document.getElementById('histPanel').classList.remove('open');
+});
+
+// Export
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const raw = inputEl.value;
+  if (!raw) { showToast('Nothing to export'); return; }
+  const content = `RawCase Export\n${'='.repeat(40)}\nOriginal:\n${raw}\n\n${'='.repeat(40)}\n\n` + CASES.map(c=>`[${c.label}]\n${c.fn(raw)}\n`).join('\n');
+  const blob = new Blob([content], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rawcase-export.txt';
+  a.click();
+  showToast('Exported!');
+});
+
+// Voice
+document.getElementById('voiceBtn').addEventListener('click', function() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    showToast('Voice not supported here'); return;
+  }
+  if (!isRecording) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.onstart = () => { isRecording = true; this.textContent = '⏹ STOP'; this.classList.add('rec'); };
+    recognition.onresult = e => { inputEl.value = e.results[0][0].transcript; updateAll(); };
+    recognition.onend = () => { isRecording = false; this.textContent = '🎙 VOICE'; this.classList.remove('rec'); };
+    recognition.start();
+  } else { recognition && recognition.stop(); }
+});
+
+// Themes
+const THEMES = {
+  dark:   { bg:'#0b0d14', bg2:'#111320', surface:'#161926', surface2:'#1d2235', accent:'#58c7ff', 'accent-rgb':'88,199,255', accent2:'#b48eff', accent3:'#3dffc3' },
+  light:  { bg:'#eef1f8', bg2:'#e4e8f2', surface:'#ffffff', surface2:'#f5f7fc', accent:'#256ed2', 'accent-rgb':'37,110,210', accent2:'#7c42d4', accent3:'#0b9e6e' },
+  ocean:  { bg:'#050e1a', bg2:'#091523', surface:'#0d1e30', surface2:'#122540', accent:'#2dd4bf', 'accent-rgb':'45,212,191', accent2:'#60a5fa', accent3:'#34d399' },
+  forest: { bg:'#07140d', bg2:'#0b1e12', surface:'#10271a', surface2:'#163323', accent:'#4ade80', 'accent-rgb':'74,222,128', accent2:'#86efac', accent3:'#a3e635' },
+  ember:  { bg:'#140a05', bg2:'#1e0f08', surface:'#28160d', surface2:'#341d10', accent:'#fb923c', 'accent-rgb':'251,146,60', accent2:'#fbbf24', accent3:'#f87171' },
+};
+
+document.querySelectorAll('.theme-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    const t = THEMES[this.dataset.theme];
+    if (!t) return;
+    const r = document.documentElement;
+    Object.entries(t).forEach(([k,v]) => r.style.setProperty('--'+k, v));
+    if (this.dataset.theme === 'light') { document.body.classList.add('light'); }
+    else { document.body.classList.remove('light'); }
+    document.querySelectorAll('.theme-chip').forEach(c=>c.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+// Init
+buildOutputs();
+updateAll();
+</script>
+</body>
+</html>
